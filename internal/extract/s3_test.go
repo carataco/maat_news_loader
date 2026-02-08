@@ -7,6 +7,6 @@ import (
 type FakeS3Extractor struct {
 }
 
-func TestS3ProcessExtract(m *testing.M) {
+func TestS3ProcessExtract(m *testing.T) {
 
 }
