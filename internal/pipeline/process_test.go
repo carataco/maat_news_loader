@@ -13,16 +13,16 @@ import (
 
 type FakeExtractSuccess struct{}
 
-func (r *FakeExtractSuccess) Extract() ([]types.Record, error) {
-	return []types.Record{
-		{"k1": "v1"},
-		{"k2": "v2"},
+func (r *FakeExtractSuccess) Extract(sources []string, event types.Event) ([][]byte, error) {
+	return [][]byte{
+		{'1', '5'},
+		{'3', '4'},
 	}, nil
 }
 
 type FakeExtractMethodFail struct{}
 
-func (r *FakeExtractMethodFail) Extract() ([]types.Record, error) {
+func (r *FakeExtractMethodFail) Extract(sources []string, event types.Event) ([][]byte, error) {
 	return nil, errors.New("extract method failed")
 }
 
@@ -105,7 +105,7 @@ func TestRunner_Run_Failures(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runner := NewRunner(types.Config{})
+			runner := NewRunner(types.Config{}, types.Event{})
 			runner.MasterExtractor = tt.extractorCtor
 			// runner.MasterLoader = tt.loaderCtor
 

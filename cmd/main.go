@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -35,10 +37,9 @@ func init() {
 
 }
 
-func LambdaHandler() ([]string, error) {
+func LambdaHandler(ctx context.Context, event types.Event) ([]string, error) {
 	fmt.Println("Running Lambda Handler")
-
-	runner := pipeline.NewRunner(cfg)
+	runner := pipeline.NewRunner(cfg, event)
 	results, err := runner.Run()
 
 	if err != nil {
@@ -51,7 +52,14 @@ func LambdaHandler() ([]string, error) {
 func main() {
 	if os.Getenv("LOCAL") == "true" {
 		fmt.Println("Running locally")
-		results, err := LambdaHandler()
+		data, err := os.ReadFile("event_file.json")
+
+		var event types.Event
+		if err := json.Unmarshal(data, &event); err != nil {
+			panic(err)
+		}
+
+		results, err := LambdaHandler(context.TODO(), event)
 		if err != nil {
 			log.Fatal(err)
 		}
