@@ -32,18 +32,27 @@ func init() {
 				Bucket: os.Getenv("S3_BUCKET"),
 			},
 		},
+		Load: types.LoadConfig{
+			PG: types.PostgresConfig{
+				Host:   os.Getenv("PGHOST"),
+				User:   os.Getenv("PGUSER"),
+				Pwd:    os.Getenv("PGPWD"),
+				Schema: os.Getenv("PGSCHEMA"),
+				Table:  os.Getenv("PGTABLE"),
+			},
+		},
 	}
 	log.Println("Lambda initialized")
 
 }
 
-func LambdaHandler(ctx context.Context, event types.Event) ([]string, error) {
+func LambdaHandler(ctx context.Context, event types.Event) (int64, error) {
 	fmt.Println("Running Lambda Handler")
 	runner := pipeline.NewRunner(cfg, event)
 	results, err := runner.Run()
 
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	return results, nil
@@ -63,7 +72,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Articles Loaded: %+v\n", len(results))
+		fmt.Printf("Rows Loaded: %+v\n", results)
 		return
 	}
 

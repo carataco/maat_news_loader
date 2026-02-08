@@ -80,26 +80,32 @@ func (r *S3Extractor) S3ListObjects(client *s3.Client, event types.Event, source
 	return objectkeys, nil
 }
 
-func (r *S3Extractor) S3GetObjects(client *s3.Client, objectkeys []string) ([][]byte, error) {
-	objects := [][]byte{}
+func (r *S3Extractor) S3GetObjects(client *s3.Client, objectkeys []string) ([][]any, error) {
+	var rows [][]any
 
 	for _, obj := range objectkeys {
-
-		result, _ := client.GetObject(context.TODO(), &s3.GetObjectInput{
+		result, err := client.GetObject(context.TODO(), &s3.GetObjectInput{
 			Bucket: aws.String(r.s3Bucket),
 			Key:    aws.String(obj),
 		})
+		if err != nil {
+			return nil, err
+		}
 
-		bodyBytes, _ := io.ReadAll(result.Body)
+		bodyBytes, err := io.ReadAll(result.Body)
+		result.Body.Close()
+		if err != nil {
+			return nil, err
+		}
 
-		objects = append(objects, bodyBytes)
-
-		defer result.Body.Close()
+		row := []any{bodyBytes}
+		rows = append(rows, row)
 	}
-	return objects, nil
+
+	return rows, nil
 }
 
-func (r *S3Extractor) Extract(sources []string, event types.Event) ([][]byte, error) {
+func (r *S3Extractor) Extract(sources []string, event types.Event) ([][]any, error) {
 	cfg, err := r.AWSS3Config(context.TODO())
 	if err != nil {
 		return nil, err
@@ -113,7 +119,6 @@ func (r *S3Extractor) Extract(sources []string, event types.Event) ([][]byte, er
 	}
 
 	objects, err := r.S3GetObjects(client, objectkeys)
-
 	return objects, nil
 
 }
