@@ -1,7 +1,11 @@
 package types
 
 type PostgresConfig struct {
-	URL string
+	Host   string
+	User   string
+	Pwd    string
+	Schema string
+	Table  string
 }
 
 type LoadConfig struct {

@@ -13,8 +13,8 @@ import (
 
 type FakeExtractSuccess struct{}
 
-func (r *FakeExtractSuccess) Extract(sources []string, event types.Event) ([][]byte, error) {
-	return [][]byte{
+func (r *FakeExtractSuccess) Extract(sources []string, event types.Event) ([][]any, error) {
+	return [][]any{
 		{'1', '5'},
 		{'3', '4'},
 	}, nil
@@ -22,7 +22,7 @@ func (r *FakeExtractSuccess) Extract(sources []string, event types.Event) ([][]b
 
 type FakeExtractMethodFail struct{}
 
-func (r *FakeExtractMethodFail) Extract(sources []string, event types.Event) ([][]byte, error) {
+func (r *FakeExtractMethodFail) Extract(sources []string, event types.Event) ([][]any, error) {
 	return nil, errors.New("extract method failed")
 }
 
