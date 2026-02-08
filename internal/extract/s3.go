@@ -2,9 +2,7 @@ package extract
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"log"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -56,37 +54,37 @@ func CreatePrefixes(startdate string, enddate string, sources []string) []string
 }
 
 func (r *S3Extractor) S3ListObjects(client *s3.Client, event types.Event, sources []string) ([]string, error) {
-
+	objectkeys := []string{}
 	prefixes := CreatePrefixes(event.StartDate, event.EndDate, sources)
-	fmt.Println(prefixes)
 
-	return []string{}, nil
-	// prefix := "raw/the_guardian/2026/02/05/"
-	// objectkeys := []string{}
+	for _, prefix := range prefixes {
 
-	// paginator := s3.NewListObjectsV2Paginator(client, &s3.ListObjectsV2Input{
-	// 	Bucket: &r.s3Bucket,
-	// 	Prefix: &prefix,
-	// })
+		paginator := s3.NewListObjectsV2Paginator(client, &s3.ListObjectsV2Input{
+			Bucket: &r.s3Bucket,
+			Prefix: &prefix,
+		})
 
-	// for paginator.HasMorePages() {
-	// 	page, err := paginator.NextPage(context.TODO())
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	for _, obj := range page.Contents {
+		for paginator.HasMorePages() {
+			page, err := paginator.NextPage(context.TODO())
+			if err != nil {
+				return nil, err
+			}
+			for _, obj := range page.Contents {
 
-	// 		objectkeys = append(objectkeys, *obj.Key)
-	// 	}
-	// }
-	// return objectkeys, nil
+				objectkeys = append(objectkeys, *obj.Key)
+			}
+		}
+
+	}
+
+	return objectkeys, nil
 }
 
 func (r *S3Extractor) S3GetObjects(client *s3.Client, objectkeys []string) ([][]byte, error) {
 	objects := [][]byte{}
+
 	for _, obj := range objectkeys {
 
-		fmt.Println(obj)
 		result, _ := client.GetObject(context.TODO(), &s3.GetObjectInput{
 			Bucket: aws.String(r.s3Bucket),
 			Key:    aws.String(obj),
@@ -104,7 +102,6 @@ func (r *S3Extractor) S3GetObjects(client *s3.Client, objectkeys []string) ([][]
 func (r *S3Extractor) Extract(sources []string, event types.Event) ([][]byte, error) {
 	cfg, err := r.AWSS3Config(context.TODO())
 	if err != nil {
-		log.Printf("error: %v", err)
 		return nil, err
 	}
 
@@ -115,10 +112,8 @@ func (r *S3Extractor) Extract(sources []string, event types.Event) ([][]byte, er
 		return nil, err
 	}
 
-	fmt.Println(objectkeys)
-	// objects, err := r.S3GetObjects(client, objectkeys)
+	objects, err := r.S3GetObjects(client, objectkeys)
 
-	// return objects, nil
-	return [][]byte{{}}, nil
+	return objects, nil
 
 }
