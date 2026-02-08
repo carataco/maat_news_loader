@@ -26,4 +26,7 @@ type Config struct {
 	Load       LoadConfig
 }
 
-type Record map[string]interface{}
+type Event struct {
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+}

@@ -1,82 +1,119 @@
 package extract
 
-import "github.com/carataco/maat_news_loader/internal/types"
+import (
+	"context"
+	"io"
+	"time"
 
-// "bytes"
-// "context"
-
-// "github.com/aws/aws-sdk-go-v2/aws"
-// "github.com/aws/aws-sdk-go-v2/config"
-// "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-// "github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/carataco/maat_news_loader/internal/types"
+)
 
 type S3Extractor struct {
 	s3Bucket string
-	// S3Extract S3Extract
-	// S3FileExtractor ExtractFunc
-	// AWSS3Config func(ctx context.Context, optFns ...func(*config.LoadOptions) error) (cfg aws.Config, err error)
+
+	AWSS3Config func(ctx context.Context, optFns ...func(*config.LoadOptions) error) (cfg aws.Config, err error)
 }
 
 func NewS3Extractor(bucket string) *S3Extractor {
 	extractor := &S3Extractor{s3Bucket: bucket}
-	// extractor.S3Extract = extractor
-	// extractor.S3FileExtractor = ExtractS3File
-	// extractor.AWSS3Config = config.LoadDefaultConfig
+
+	extractor.AWSS3Config = config.LoadDefaultConfig
 
 	return extractor
 }
 
-// type S3Extract interface {
-// 	Extractor(s3Bucket string, articleKey string, serializedArticle *bytes.Reader) (string, error)
-// }
+func CreatePrefixes(startdate string, enddate string, sources []string) []string {
+	prefixes := []string{}
 
-// type ExtractFunc func(uploadermanager *manager.Uploader, bucket string, articlekey string, article *bytes.Reader) (*manager.UploadOutput, error)
+	startdateT, _ := time.Parse("2006/01/02", startdate)
+	enddateT, _ := time.Parse("2006/01/02", enddate)
+	daysdiff := int(enddateT.Sub(startdateT).Hours() / 24)
 
-// func ExtractS3File(uploadermanager *manager.Uploader, bucket string, articlekey string, article *bytes.Reader) (*manager.UploadOutput, error) {
-// 	result, err := uploadermanager.Upload(context.Background(), &s3.PutObjectInput{
-// 		Bucket: aws.String(bucket),
-// 		Key:    aws.String(articlekey),
-// 		Body:   article,
-// 	})
+	for _, source := range sources {
 
-// 	if err != nil {
-// 		return nil, err
-// 	}
+		if startdate == "" || enddate == "" {
+			yesterday := time.Now().AddDate(0, 0, -1).Format("2006/01/02")
+			prefix := "raw/" + source + "/" + yesterday + "/"
+			prefixes = append(prefixes, prefix)
 
-// 	return result, nil
-// }
+		} else {
 
-// func (r *S3Extractor) Extractor(s3Bucket string, articleKey string, serializedArticle *bytes.Reader) (string, error) {
-// 	cfg, err := r.AWSS3Config(context.TODO())
-// 	if err != nil {
-// 		log.Printf("error: %v", err)
-// 		return "nil", err
-// 	}
+			for i := range daysdiff {
+				selecteddate := startdateT.Add(time.Hour * 24 * time.Duration(i)).Format("2006/01/02")
+				prefix := "raw/" + source + "/" + selecteddate + "/"
+				prefixes = append(prefixes, prefix)
 
-// 	client := s3.NewFromConfig(cfg)
-// 	uploader := manager.NewUploader(client)
+			}
+		}
+	}
 
-// 	result, err := r.S3FileExtractor(uploader, s3Bucket, articleKey, serializedArticle)
-
-// 	if err != nil {
-// 		return "nil", err
-// 	}
-
-// 	if result.Key != nil {
-// 		log.Println("Uploaded object key:", *result.Key)
-// 		return *result.Key, nil
-// 	} else {
-// 		log.Println("Object key not uploaded:", *result.Key)
-// 		fmt.Println("Key not returned by S3")
-// 		return *result.Key, nil
-// 	}
-// }
-
-func (r *S3Extractor) ExtractS3Files() {
+	return prefixes
 }
 
-func (r *S3Extractor) Extract() ([]types.Record, error) {
+func (r *S3Extractor) S3ListObjects(client *s3.Client, event types.Event, sources []string) ([]string, error) {
+	objectkeys := []string{}
+	prefixes := CreatePrefixes(event.StartDate, event.EndDate, sources)
 
-	testo := []types.Record{}
-	return testo, nil
+	for _, prefix := range prefixes {
+
+		paginator := s3.NewListObjectsV2Paginator(client, &s3.ListObjectsV2Input{
+			Bucket: &r.s3Bucket,
+			Prefix: &prefix,
+		})
+
+		for paginator.HasMorePages() {
+			page, err := paginator.NextPage(context.TODO())
+			if err != nil {
+				return nil, err
+			}
+			for _, obj := range page.Contents {
+
+				objectkeys = append(objectkeys, *obj.Key)
+			}
+		}
+
+	}
+
+	return objectkeys, nil
+}
+
+func (r *S3Extractor) S3GetObjects(client *s3.Client, objectkeys []string) ([][]byte, error) {
+	objects := [][]byte{}
+
+	for _, obj := range objectkeys {
+
+		result, _ := client.GetObject(context.TODO(), &s3.GetObjectInput{
+			Bucket: aws.String(r.s3Bucket),
+			Key:    aws.String(obj),
+		})
+
+		bodyBytes, _ := io.ReadAll(result.Body)
+
+		objects = append(objects, bodyBytes)
+
+		defer result.Body.Close()
+	}
+	return objects, nil
+}
+
+func (r *S3Extractor) Extract(sources []string, event types.Event) ([][]byte, error) {
+	cfg, err := r.AWSS3Config(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	client := s3.NewFromConfig(cfg)
+
+	objectkeys, err := r.S3ListObjects(client, event, sources)
+	if err != nil {
+		return nil, err
+	}
+
+	objects, err := r.S3GetObjects(client, objectkeys)
+
+	return objects, nil
+
 }

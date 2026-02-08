@@ -5,7 +5,7 @@ set -e
 
 # Set environment variables
 export RSS_URL="https://www.theguardian.com/world/rss"
-export SOURCE_IDS="the_guardian, bbc_news_int"
+export SOURCE_IDS="the_guardian,bbc_news_int"
 export SOURCE_TYPE="s3"
 export TARGET_TYPE="postgres"
 
